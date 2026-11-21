@@ -3,7 +3,6 @@ package dev.perinkpheral.clion.simulator
 
 import dev.perinkpheral.core.contract.Contract
 import java.io.File
-import java.security.MessageDigest
 import java.util.Properties
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -20,16 +19,16 @@ class BundledSimulatorTest {
                 .use { load(it) }
         }
         val firmware = File(System.getProperty("perinkpheral.sdk")).parentFile
-        val git = ProcessBuilder("git", "-C", firmware.path, "rev-parse", "HEAD")
-            .redirectErrorStream(true).start()
-        val commit = git.inputStream.bufferedReader().use { it.readText().trim() }
-        assertEquals(0, git.waitFor(), "Cannot read firmware checkout commit: $commit")
-        assertEquals(commit, provenance.getProperty("firmware.commit"),
-            "Bundled simulators are behind the firmware checkout. Rebuild all platforms and update build.properties.")
+        val inputs = SimulatorSourceProvenance.inputs(firmware)
+        val differingFiles = SimulatorSourceProvenance.differingFiles(provenance, inputs)
+        assertEquals(provenance.getProperty("source.sha256"), SimulatorSourceProvenance.hash(inputs),
+            "Bundled simulator source inputs changed: ${differingFiles.joinToString()}. " +
+                "Rebuild all platforms and update build.properties with recordSimulatorProvenance.")
+        assertTrue(differingFiles.isEmpty(), "Source file manifest differs: ${differingFiles.joinToString()}")
         for (platform in platforms) {
             val bytes = assertNotNull(javaClass.getResourceAsStream("/simulator/$platform/perinkpheral-sim"))
                 .use { it.readBytes() }
-            val hash = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+            val hash = SimulatorSourceProvenance.sha256(bytes)
             assertEquals(provenance.getProperty("$platform.sha256"), hash, "$platform differs from its recorded build")
         }
     }

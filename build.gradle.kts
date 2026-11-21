@@ -15,6 +15,16 @@ tasks.test {
         (providers.gradleProperty("perinkpheralPath").orNull ?: "../perinkpheral-os") + "/sdk").absolutePath)
 }
 
+tasks.register<JavaExec>("recordSimulatorProvenance") {
+    description = "Record source inputs and hashes after updating all bundled simulators"
+    group = "verification"
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass = "dev.perinkpheral.clion.simulator.SimulatorSourceProvenance"
+    args(file((providers.gradleProperty("perinkpheralPath").orNull ?: "../perinkpheral-os")).absolutePath,
+        file("src/main/resources/simulator").absolutePath)
+}
+
 dependencies {
     testImplementation(kotlin("test-junit"))
     // The IDE has Kotlin's library of its own.

@@ -38,13 +38,22 @@ Requires Java 21 and a sibling `../perinkpheral-os` checkout for `tools/core`.
 The plugin archive is written to `build/distributions/`.
 Installation: Settings - Plugins - Install Plugin from Disk.
 
-Bundled simulators must be built from that firmware checkout's commit. The test
-compares `src/main/resources/simulator/build.properties` with the checkout's HEAD
-and checks each binary's SHA-256. CI selects firmware `main`, so a firmware update
-requires rebuilding the bundles before the next plugin release. Build all three
-platforms using `tools/simulator/Makefile` in the firmware checkout, copy the
-executables into the corresponding resource folders, and record the full commit
-and new hashes in `build.properties`.
+Bundled simulators record their source inputs in
+`src/main/resources/simulator/build.properties`. The test hashes sorted relative
+paths and raw contents from `tools/simulator` (excluding `build/`), every firmware
+and SDK source compiled by its Makefile, included local headers, and the SDK
+headers and CLI page used to generate embedded data. Each path and content is
+prefixed by its 8-byte big-endian byte length. Per-file hashes identify changed,
+added or removed inputs; each binary also retains its own SHA-256. Unrelated
+firmware commits require no rebuild.
+
+When these inputs change, build all three platforms using
+`tools/simulator/Makefile` in the firmware checkout and copy the executables into
+the corresponding resource folders. Then run
+`./gradlew recordSimulatorProvenance -PperinkpheralPath=<checkout>` and `./gradlew test`
+with the same checkout. Keep the source and include lists in
+`SimulatorSourceProvenance.kt` in sync when the Makefile changes; the Makefile
+itself is hashed so such changes are detected.
 
 When upgrading from the old `org.perinkpheral.clion` plugin, uninstall it before
 installing this `dev.perinkpheral.clion` build; the IDE treats the IDs as separate plugins.
