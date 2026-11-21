@@ -20,6 +20,11 @@ also work with release firmware. The bundled simulator supports macOS and Linux.
 Update an existing SDK checkout before using this plugin. Generated headers are
 stored separately for each application checkout.
 
+USB firmware uploads check the board's partition table before writing. For an old
+two-slot board, first choose Keep data in the [web flasher](https://perinkpheral.dev/flash)
+to apply the release's data-preserving migration manifest. After a USB firmware
+upload, press BACK (Exit recovery) on the device to validate and start the image.
+
 ## Build
 
 Requires Java 21 and a sibling `../perinkpheral-os` checkout for `tools/core`.

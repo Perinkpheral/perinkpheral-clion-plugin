@@ -10,6 +10,11 @@ kotlin {
     jvmToolchain(21)
 }
 
+tasks.test {
+    systemProperty("perinkpheral.sdk", file(
+        (providers.gradleProperty("perinkpheralPath").orNull ?: "../perinkpheral-os") + "/sdk").absolutePath)
+}
+
 dependencies {
     testImplementation(kotlin("test-junit"))
     // The IDE has Kotlin's library of its own.

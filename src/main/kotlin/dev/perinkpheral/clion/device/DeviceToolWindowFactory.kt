@@ -226,25 +226,39 @@ private class DevicePanel(private val toolWindow: ToolWindow) : JPanel(BorderLay
             return
         }
         try {
-            val frame = client.screen()
-            if (frame.number != lastFrame || screen.frame == null) {
+            val refreshed = DeviceRefresh(client::status, { follower?.next() }, client::screen,
+                isSimulator = Simulator.activeHost != null)
+            val frame = refreshed.screen.getOrNull()
+            if (frame != null && (frame.number != lastFrame || screen.frame == null)) {
                 lastFrame = frame.number
                 val image = frame.image()
                 show { screen.frame = image }
+            } else if (!refreshed.supportsScreen) {
+                lastFrame = -1
+                show { screen.frame = null }
             }
             // A device that started anew in between: its new log, from the beginning.
-            val part = follower?.next() ?: return
-            if (part.text.isNotEmpty() || part.restarted) {
+            val part = refreshed.logs.getOrNull()
+            if (part != null && (part.text.isNotEmpty() || part.restarted)) {
                 show {
                     if (part.restarted) log.append("--- restart ---\n")
                     log.append(part.text)
                     log.caretPosition = log.document.length
                 }
             }
-            val pending = if (frame.isPending) ", refresh pending" else ""
-            failures = 0
             val where = if (Simulator.activeHost != null) "Simulator" else connectedHost
-            show { status.text = "$where: frame ${frame.number}$pending" }
+            val firmware = refreshed.status.getOrNull()?.get("firmware")?.toString() ?: "connected"
+            val pending = if (frame?.isPending == true) ", refresh pending" else ""
+            val summary = if (frame == null) firmware else "$firmware, frame ${frame.number}$pending"
+            val error = refreshed.error
+            if (error != null) {
+                failures = minOf(failures + 1, 4)
+                skips = (1 shl failures) - 1
+                show { status.text = "$where: $summary; ${error.message ?: error.javaClass.simpleName}" }
+                return
+            }
+            failures = 0
+            show { status.text = "$where: $summary" }
         } catch (error: Exception) {
             failures = minOf(failures + 1, 4)
             skips = (1 shl failures) - 1

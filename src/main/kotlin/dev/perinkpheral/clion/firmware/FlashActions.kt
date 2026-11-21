@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 package dev.perinkpheral.clion.firmware
 
-import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -21,9 +20,6 @@ import dev.perinkpheral.clion.toolchain.Tools
 import java.io.File
 import java.io.IOException
 
-/** A region of the flash, from `firmware/partitions.csv`. */
-class Partition(val name: String, val offset: Long, val size: Long)
-
 object Firmware {
     private const val IMAGE_MAGIC = 0xE9
 
@@ -31,10 +27,7 @@ object Firmware {
     fun partitions(): Map<String, Partition> {
         val table = PerinkpheralSettings.get().tool("firmware/partitions.csv")
         if (!table.isFile) throw IOException("firmware/partitions.csv was not found in the SDK checkout.")
-        return table.readLines().map { it.substringBefore('#').trim() }.filter { it.isNotEmpty() }
-            .map { line -> line.split(',').map { it.trim() } }
-            .filter { it.size >= 5 }
-            .associate { it[0] to Partition(it[0], java.lang.Long.decode(it[3]), java.lang.Long.decode(it[4])) }
+        return PartitionTable.csv(table.readText())
     }
 
     /** Asks for the image; the build output of the SDK checkout is preselected. */
@@ -76,7 +69,8 @@ class FlashOverNetworkAction : AnAction(), DumbAware {
 /**
  * Writes an image over USB with esptool.
  *
- * Written: the `ota_0` slot. Erased: `otadata`, which makes the bootloader start `ota_0`.
+ * Written: the `ota_0` slot after verifying the board's layout. Erased: `otadata`,
+ * which starts factory recovery; BACK validates and selects the uploaded main firmware.
  * Left as they are: the bootloader, the partition table, `nvs` (settings, Wi-Fi), `appkv`,
  * `appcode`, `apps`, `glyphs`.
  */
@@ -89,11 +83,11 @@ class FlashOverUsbAction : AnAction(), DumbAware {
         }
         val image = Firmware.chooseImage(project) ?: return
         val slot: Partition
-        val selector: Partition
+        val partitions: Map<String, Partition>
         try {
-            val partitions = Firmware.partitions()
+            partitions = Firmware.partitions()
             slot = partitions.getValue("ota_0")
-            selector = partitions.getValue("otadata")
+            partitions.getValue("otadata")
             Firmware.check(image, slot)
         } catch (error: Exception) {
             Tools.notify(project, error.message ?: "Invalid image.", NotificationType.ERROR)
@@ -101,7 +95,8 @@ class FlashOverUsbAction : AnAction(), DumbAware {
         }
         val port = Messages.showInputDialog(project,
             "${image.name} is written to ota_0 at 0x${slot.offset.toString(16)}.\n" +
-                "Settings, Wi-Fi and applications are kept.\n\n" +
+                "The board layout is checked first. Settings, Wi-Fi and applications are kept.\n" +
+                "After writing, press BACK (Exit recovery) on the device to start the firmware.\n\n" +
                 "Serial port (empty: detect):",
             "Upload Firmware over USB", null, "", null) ?: return
 
@@ -113,19 +108,14 @@ class FlashOverUsbAction : AnAction(), DumbAware {
             }
 
             override fun onSuccess() {
-                fun esptool(vararg arguments: String): GeneralCommandLine {
-                    val command = mutableListOf(tool.path, "--chip", "esp32c6")
-                    if (port.isNotBlank()) command += listOf("--port", port.trim())
-                    return GeneralCommandLine(command + arguments)
-                }
-                // The slot first: a write that fails leaves `otadata`, and the slot it selects, as they were.
-                val write = esptool("--after", "no-reset", "write-flash",
-                    "0x${slot.offset.toString(16)}", image.path)
-                val select = esptool("erase-region",
-                    "0x${selector.offset.toString(16)}", "0x${selector.size.toString(16)}")
-                Tools.runInConsole(project, "Write Firmware", write) { code ->
-                    if (code == 0) Tools.runInConsole(project, "Select Slot", select)
-                }
+                val command = mutableListOf(tool.path, "--chip", "esp32c6")
+                if (port.isNotBlank()) command += listOf("--port", port.trim())
+                Tools.runInConsole(project, "Write Firmware", TaskProcessHandler {
+                    UsbFlash.install(image, partitions, { runChild(command + it) }) { message ->
+                        say(message)
+                        Tools.notify(project, message)
+                    }
+                }, null)
             }
 
             override fun onThrowable(error: Throwable) {
