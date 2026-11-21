@@ -48,7 +48,7 @@ class UsbFlashTest {
         val messages = mutableListOf<String>()
         var temporary: File? = null
 
-        fun run(arguments: List<String>): Int {
+        fun run(arguments: List<String>, output: (String) -> Unit): Int {
             commands += arguments
             if (commands.size == failStep) return 2
             if ("read-flash" in arguments) {
@@ -61,11 +61,52 @@ class UsbFlashTest {
     @Test
     fun matchingBoardIsReadBeforeWritingAndErasing() {
         val run = FlashRun(table())
-        assertEquals(0, UsbFlash.install(File("firmware.bin"), current, run::run, run.messages::add))
-        assertEquals(listOf("--after", "no-reset", "read-flash", "0x8000", "0x1000"), run.commands[0].dropLast(1))
-        assertEquals(listOf("--after", "no-reset", "write-flash", "0x100000", "firmware.bin"), run.commands[1])
-        assertEquals(listOf("erase-region", "0xf000", "0x2000"), run.commands[2])
+        assertEquals(0, UsbFlash.install(File("firmware.bin"), current, " /dev/selected ", run::run, run.messages::add))
+        assertEquals(listOf("--after", "no-reset", "read-flash", "0x8000", "0x1000"), run.commands[0].drop(2).dropLast(1))
+        assertEquals(listOf("--after", "no-reset", "write-flash", "0x100000", "firmware.bin"), run.commands[1].drop(2))
+        assertEquals(listOf("erase-region", "0xf000", "0x2000"), run.commands[2].drop(2))
+        assertTrue(run.commands.all { it.take(2) == listOf("--port", "/dev/selected") })
         assertFalse(run.temporary!!.exists())
+    }
+
+    @Test
+    fun emptyPortIsDetectedOnceAndPinnedForAllFlashSteps() {
+        val run = FlashRun(table())
+        val commands = mutableListOf<List<String>>()
+        val result = UsbFlash.install(File("firmware.bin"), current, "  ", { arguments, output ->
+            commands += arguments
+            if ("read-mac" in arguments) {
+                output("Serial port /dev/wrong-board")
+                output("Connecting... failed")
+                output("\u001B[32mConnected to ESP32-C6 on /dev/right-board:\u001B[0m")
+                0
+            } else run.run(arguments, output)
+        }, run.messages::add)
+        assertEquals(0, result)
+        assertEquals(listOf("--after", "no-reset", "read-mac"), commands.first())
+        assertEquals(4, commands.size)
+        assertTrue(commands.drop(1).all { it.take(2) == listOf("--port", "/dev/right-board") })
+        assertEquals(3, run.commands.size)
+    }
+
+    @Test
+    fun detectionFailureOrUnrecognizedOutputCannotReadWriteOrErase() {
+        for (code in listOf(0, 2)) {
+            val commands = mutableListOf<List<String>>()
+            val messages = mutableListOf<String>()
+            val flash = {
+                UsbFlash.install(File("image"), current, "", { arguments, output ->
+                    commands += arguments
+                    output("Serial port /dev/not-confirmed")
+                    code
+                }, messages::add)
+            }
+            if (code == 0) assertFailsWith<IOException> { flash() }
+            else assertEquals(code, flash())
+            assertEquals(1, commands.size)
+            assertTrue("read-mac" in commands.single())
+            assertTrue(messages.isEmpty())
+        }
     }
 
     @Test
@@ -74,7 +115,7 @@ class UsbFlashTest {
             Partition("ota_0", 0x20000, 0x170000, 0, 0x10) + Partition("ota_1", 0x190000, 0x170000, 0, 0x11)
         val run = FlashRun(table(old))
         val error = assertFailsWith<IOException> {
-            UsbFlash.install(File("firmware.bin"), current, run::run, run.messages::add)
+            UsbFlash.install(File("firmware.bin"), current, " /dev/selected ", run::run, run.messages::add)
         }
         assertTrue(error.message!!.contains("data-preserving migration-manifest.json"))
         assertEquals(1, run.commands.size)
@@ -99,7 +140,7 @@ class UsbFlashTest {
         val corrupted = table().apply { this[current.size * 32 + 16] = 0 }
         for (bytes in listOf(corrupted, table().copyOf(64), ByteArray(4096))) {
             val run = FlashRun(bytes)
-            assertFailsWith<IOException> { UsbFlash.install(File("image"), current, run::run, run.messages::add) }
+            assertFailsWith<IOException> { UsbFlash.install(File("image"), current, " /dev/selected ", run::run, run.messages::add) }
             assertEquals(1, run.commands.size)
         }
         PartitionTable.verify(table(checksum = false), current)
@@ -109,7 +150,7 @@ class UsbFlashTest {
     fun failuresStopLaterStepsAndDoNotReportCompletion() {
         for (step in 1..3) {
             val run = FlashRun(table(), failStep = step)
-            assertEquals(2, UsbFlash.install(File("image"), current, run::run, run.messages::add))
+            assertEquals(2, UsbFlash.install(File("image"), current, " /dev/selected ", run::run, run.messages::add))
             assertEquals(step, run.commands.size)
             assertTrue(run.messages.isEmpty())
         }
@@ -118,7 +159,7 @@ class UsbFlashTest {
     @Test
     fun successfulFlashExplainsHowToStartMainFirmware() {
         val run = FlashRun(table())
-        UsbFlash.install(File("image"), current, run::run, run.messages::add)
+        UsbFlash.install(File("image"), current, " /dev/selected ", run::run, run.messages::add)
         val message = run.messages.single()
         assertTrue(message.contains("starts in recovery"))
         assertTrue(message.contains("Press BACK (Exit recovery)"))

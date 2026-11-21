@@ -109,9 +109,8 @@ class FlashOverUsbAction : AnAction(), DumbAware {
 
             override fun onSuccess() {
                 val command = mutableListOf(tool.path, "--chip", "esp32c6")
-                if (port.isNotBlank()) command += listOf("--port", port.trim())
                 Tools.runInConsole(project, "Write Firmware", TaskProcessHandler {
-                    UsbFlash.install(image, partitions, { runChild(command + it) }) { message ->
+                    UsbFlash.install(image, partitions, port, { arguments, output -> runChild(command + arguments, output) }) { message ->
                         say(message)
                         Tools.notify(project, message)
                     }

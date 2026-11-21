@@ -30,6 +30,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: Perinkpheral/perinkpheral-os
+          ref: main
           path: perinkpheral-os
       - uses: actions/setup-java@v5
         with:

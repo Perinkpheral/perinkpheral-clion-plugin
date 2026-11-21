@@ -38,6 +38,14 @@ Requires Java 21 and a sibling `../perinkpheral-os` checkout for `tools/core`.
 The plugin archive is written to `build/distributions/`.
 Installation: Settings - Plugins - Install Plugin from Disk.
 
+Bundled simulators must be built from that firmware checkout's commit. The test
+compares `src/main/resources/simulator/build.properties` with the checkout's HEAD
+and checks each binary's SHA-256. CI selects firmware `main`, so a firmware update
+requires rebuilding the bundles before the next plugin release. Build all three
+platforms using `tools/simulator/Makefile` in the firmware checkout, copy the
+executables into the corresponding resource folders, and record the full commit
+and new hashes in `build.properties`.
+
 When upgrading from the old `org.perinkpheral.clion` plugin, uninstall it before
 installing this `dev.perinkpheral.clion` build; the IDE treats the IDs as separate plugins.
 

@@ -108,6 +108,7 @@ private class DevicePanel(private val toolWindow: ToolWindow) : JPanel(BorderLay
     private val poll: ScheduledFuture<*>
     private var lastFrame = -1
     private var follower: LogFollower? = null
+    private var screenSupport = DeviceScreenSupport()
     private var connectedHost = ""
     private val simulatorRow = JPanel(FlowLayout(FlowLayout.CENTER, 4, 4))
     private var failures = 0
@@ -181,6 +182,7 @@ private class DevicePanel(private val toolWindow: ToolWindow) : JPanel(BorderLay
         if (host != connectedHost) {
             connectedHost = host
             lastFrame = -1
+            screenSupport = DeviceScreenSupport()
             follower = if (host.isBlank()) null else LogFollower(DeviceClient(host))
         }
         return if (host.isBlank()) null else DeviceClient(host)
@@ -227,13 +229,13 @@ private class DevicePanel(private val toolWindow: ToolWindow) : JPanel(BorderLay
         }
         try {
             val refreshed = DeviceRefresh(client::status, { follower?.next() }, client::screen,
-                isSimulator = Simulator.activeHost != null)
+                isSimulator = Simulator.activeHost != null, screenSupport = screenSupport)
             val frame = refreshed.screen.getOrNull()
             if (frame != null && (frame.number != lastFrame || screen.frame == null)) {
                 lastFrame = frame.number
                 val image = frame.image()
                 show { screen.frame = image }
-            } else if (!refreshed.supportsScreen) {
+            } else if (refreshed.clearScreen) {
                 lastFrame = -1
                 show { screen.frame = null }
             }

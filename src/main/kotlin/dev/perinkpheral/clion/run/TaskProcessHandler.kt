@@ -66,13 +66,16 @@ class TaskProcessHandler(private val work: TaskProcessHandler.() -> Int) : Proce
 
     /** Starts a program and passes its output on until it ends; returns its exit code. Not
      * started once Stop was pressed, and ended by a Stop that came while it was starting. */
-    fun runChild(command: List<String>): Int {
+    fun runChild(command: List<String>, onLine: (String) -> Unit = {}): Int {
         if (isCancelled) throw InterruptedException("cancelled")
         val process = ProcessBuilder(command).redirectErrorStream(true).start()
         child = process
         if (isCancelled) process.destroy()
         try {
-            process.inputStream.bufferedReader().forEachLine { say(it) }
+            process.inputStream.bufferedReader().forEachLine {
+                say(it)
+                onLine(it)
+            }
             return process.waitFor()
         } finally {
             child = null
