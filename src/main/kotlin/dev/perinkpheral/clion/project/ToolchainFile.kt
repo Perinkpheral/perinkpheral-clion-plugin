@@ -50,8 +50,8 @@ object ToolchainFile {
                 appendLine("set(ENV{PERINKPHERAL} \"$sdk\")")
             }
             if (wasi.isNotBlank()) appendLine("set(ENV{WASI_SDK_PATH} \"$wasi\")")
-            appendLine("set(ENV{PERINKPHERAL_HOST} \"$host\")")
             if (host.isNotBlank()) {
+                appendLine("set(ENV{PERINKPHERAL_HOST} \"$host\")")
                 appendLine("set(PERINKPHERAL_HOST \"$host\" CACHE STRING \"The device's address\" FORCE)")
                 appendLine("set(_PERINKPHERAL_PLUGIN_HOST \"$host\" CACHE INTERNAL \"Last device address set by the plugin\" FORCE)")
             } else {

@@ -20,8 +20,9 @@ class ToolchainFileTest {
     @Test
     fun clearingPluginAddressRemovesOnlyItsCachedValue() = withCmakeProject { project ->
         configure(project, "previous-board.local", null, "previous-board.local")
-        configure(project, "", null, "")
-        configure(project, "", null, "")
+        // Without the plugin's address the developer's environment decides, as the guide says.
+        configure(project, "", null, "inherited-old-board.local")
+        configure(project, "", null, "inherited-old-board.local")
         // Ownership is released: even the old address can now be selected explicitly.
         configure(project, "", "previous-board.local", "previous-board.local")
         configure(project, "", null, "previous-board.local")
@@ -71,7 +72,9 @@ class ToolchainFileTest {
         } finally {
             if (process.isAlive) process.destroyForcibly().waitFor()
         }
-        assertEquals("$expected\n$pluginHost", File(build, "host.txt").readText())
+        // A blank plugin address leaves the environment CLion passes untouched.
+        val environment = pluginHost.ifBlank { "inherited-old-board.local" }
+        assertEquals("$expected\n$environment", File(build, "host.txt").readText())
         val cached = File(build, "CMakeCache.txt").readLines().single { it.startsWith("PERINKPHERAL_HOST:") }
         assertEquals(expected, cached.substringAfter('='))
     }
