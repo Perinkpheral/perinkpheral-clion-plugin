@@ -6,7 +6,7 @@
         <p>Development tools for the perINKpheral desk display.</p>
         <ul>
             <li>Toolchain setup: SDK checkout and wasi-sdk are downloaded on request.</li>
-            <li>An application folder opens as a CMake project: the SDK and wasi-sdk are found from the plugin's settings.</li>
+            <li>CMake project setup: the plugin offers to create or replace CMakeLists.txt so the project reads SDK and wasi-sdk paths from the plugin settings.</li>
             <li>Run configuration and Upload to Device: build an application, install it on the device and restart the device into it.</li>
             <li>Device tool window: live screen, buttons, log and status.</li>
             <li>Simulator on macOS and Linux: an application runs on this computer in the firmware's own interpreter and kit, in the foreground and in the background, with intents, alarms and mocked answers.</li>
@@ -57,11 +57,11 @@
             <action id="dev.perinkpheral.clion.FlashNetwork"
                     class="dev.perinkpheral.clion.firmware.FlashOverNetworkAction"
                     text="Upload Firmware over Network"
-                    description="Send firmware/build/perinkpheral.bin to the device"/>
+                    description="Choose a main firmware image and upload it through recovery"/>
             <action id="dev.perinkpheral.clion.FlashUsb"
                     class="dev.perinkpheral.clion.firmware.FlashOverUsbAction"
                     text="Upload Firmware over USB..."
-                    description="Write the firmware image to the first slot with esptool; settings partitions are not touched"/>
+                    description="Write selected main firmware to ota_0 with esptool; settings and applications are kept. Press BACK in recovery to start it"/>
         </group>
     </actions>
 </idea-plugin>

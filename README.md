@@ -25,6 +25,14 @@ two-slot board, first choose Keep data in the [web flasher](https://perinkpheral
 to apply the release's data-preserving migration manifest. After a USB firmware
 upload, press BACK (Exit recovery) on the device to validate and start the image.
 
+## Setup and run
+
+Run Tools - perINKpheral - Set Up Toolchain. Set Device address under
+Settings - Tools - perINKpheral. Open an application folder and accept CMake
+setup or replacement when offered. Select its device or simulator run
+configuration, then run it. Upload to Device is also available from the project
+and editor context menus.
+
 ## Build
 
 Requires Java 21 and a sibling `../perinkpheral-os` checkout for `tools/core`.
