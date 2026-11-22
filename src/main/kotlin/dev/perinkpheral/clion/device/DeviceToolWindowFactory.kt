@@ -106,7 +106,6 @@ private class DevicePanel(private val toolWindow: ToolWindow) : JPanel(BorderLay
         font = JBUI.Fonts.create("Monospaced", 12)
     }
     private val poll: ScheduledFuture<*>
-    private var lastFrame = -1
     private var follower: LogFollower? = null
     private var screenSupport = DeviceScreenSupport()
     private var connectedHost = ""
@@ -181,7 +180,6 @@ private class DevicePanel(private val toolWindow: ToolWindow) : JPanel(BorderLay
         show { simulatorRow.isVisible = simulated != null }
         if (host != connectedHost) {
             connectedHost = host
-            lastFrame = -1
             screenSupport = DeviceScreenSupport()
             follower = if (host.isBlank()) null else LogFollower(DeviceClient(host))
         }
@@ -231,14 +229,7 @@ private class DevicePanel(private val toolWindow: ToolWindow) : JPanel(BorderLay
             val refreshed = DeviceRefresh(client::status, { follower?.next() }, client::screen,
                 isSimulator = Simulator.activeHost != null, screenSupport = screenSupport)
             val frame = refreshed.screen.getOrNull()
-            if (frame != null && (frame.number != lastFrame || screen.frame == null)) {
-                lastFrame = frame.number
-                val image = frame.image()
-                show { screen.frame = image }
-            } else if (refreshed.clearScreen) {
-                lastFrame = -1
-                show { screen.frame = null }
-            }
+            refreshed.updateScreen { image -> show { screen.frame = image } }
             // A device that started anew in between: its new log, from the beginning.
             val part = refreshed.logs.getOrNull()
             if (part != null && (part.text.isNotEmpty() || part.restarted)) {

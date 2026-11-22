@@ -98,11 +98,13 @@ internal object UsbFlash {
             PartitionTable.verify(table.readBytes(), partitions)
             val slot = partitions.getValue("ota_0")
             val selector = partitions.getValue("otadata")
-            val write = onBoard(listOf("--after", "no-reset", "write-flash", "0x${slot.offset.toString(16)}", image.path))
-            if (write != 0) return write
-            val select = onBoard(listOf("erase-region", "0x${selector.offset.toString(16)}", "0x${selector.size.toString(16)}"))
-            if (select == 0) say(COMPLETION)
-            return select
+            // Clear both boot records before replacing main so an interrupted upload
+            // cannot boot the new image under the previous image's VALID record.
+            val erase = onBoard(listOf("--after", "no-reset", "erase-region", "0x${selector.offset.toString(16)}", "0x${selector.size.toString(16)}"))
+            if (erase != 0) return erase
+            val write = onBoard(listOf("write-flash", "0x${slot.offset.toString(16)}", image.path))
+            if (write == 0) say(COMPLETION)
+            return write
         } finally {
             table.delete()
         }

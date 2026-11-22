@@ -5,6 +5,7 @@ import dev.perinkpheral.core.Json
 import dev.perinkpheral.core.device.LogFollower
 import dev.perinkpheral.core.device.Screen
 import java.io.IOException
+import java.awt.image.BufferedImage
 
 internal class DeviceRefresh(status: () -> String, logs: () -> LogFollower.Part?, screen: () -> Screen,
                              isSimulator: Boolean = false, screenSupport: DeviceScreenSupport = DeviceScreenSupport()) {
@@ -19,6 +20,13 @@ internal class DeviceRefresh(status: () -> String, logs: () -> LogFollower.Part?
     // Failed status or screen requests leave the last displayed frame in place.
     val clearScreen = this.status.isSuccess && this.screen.isSuccess && this.screen.getOrNull() == null
     val error: Throwable? get() = status.exceptionOrNull() ?: logs.exceptionOrNull() ?: screen.exceptionOrNull()
+
+    fun updateScreen(show: (BufferedImage?) -> Unit) {
+        val frame = screen.getOrNull()
+        // Frame numbers can repeat after restarting a simulator or device.
+        if (frame != null) show(frame.image())
+        else if (clearScreen) show(null)
+    }
 }
 
 internal class DeviceScreenSupport {

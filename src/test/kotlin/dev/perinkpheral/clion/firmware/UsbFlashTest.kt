@@ -59,12 +59,12 @@ class UsbFlashTest {
     }
 
     @Test
-    fun matchingBoardIsReadBeforeWritingAndErasing() {
+    fun matchingBoardIsReadThenBothBootRecordsAreErasedBeforeWritingAndResetting() {
         val run = FlashRun(table())
         assertEquals(0, UsbFlash.install(File("firmware.bin"), current, " /dev/selected ", run::run, run.messages::add))
         assertEquals(listOf("--after", "no-reset", "read-flash", "0x8000", "0x1000"), run.commands[0].drop(2).dropLast(1))
-        assertEquals(listOf("--after", "no-reset", "write-flash", "0x100000", "firmware.bin"), run.commands[1].drop(2))
-        assertEquals(listOf("erase-region", "0xf000", "0x2000"), run.commands[2].drop(2))
+        assertEquals(listOf("--after", "no-reset", "erase-region", "0xf000", "0x2000"), run.commands[1].drop(2))
+        assertEquals(listOf("write-flash", "0x100000", "firmware.bin"), run.commands[2].drop(2))
         assertTrue(run.commands.all { it.take(2) == listOf("--port", "/dev/selected") })
         assertFalse(run.temporary!!.exists())
     }
@@ -153,7 +153,25 @@ class UsbFlashTest {
             assertEquals(2, UsbFlash.install(File("image"), current, " /dev/selected ", run::run, run.messages::add))
             assertEquals(step, run.commands.size)
             assertTrue(run.messages.isEmpty())
+            if (step <= 2) assertTrue(run.commands.none { "write-flash" in it })
+            if (step == 3) assertTrue("erase-region" in run.commands[1])
         }
+    }
+
+    @Test
+    fun interruptionDuringJournalEraseCannotStartWritingMain() {
+        val run = FlashRun(table())
+        assertFailsWith<IOException> {
+            UsbFlash.install(File("image"), current, "/dev/selected", { arguments, output ->
+                val result = run.run(arguments, output)
+                if ("erase-region" in arguments) throw IOException("Upload stopped")
+                result
+            }, run.messages::add)
+        }
+        assertEquals(2, run.commands.size)
+        assertTrue(run.commands.none { "write-flash" in it })
+        assertTrue(run.messages.isEmpty())
+        assertFalse(run.temporary!!.exists())
     }
 
     @Test

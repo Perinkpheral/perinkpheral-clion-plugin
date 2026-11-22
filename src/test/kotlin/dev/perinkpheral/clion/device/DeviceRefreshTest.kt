@@ -4,6 +4,7 @@ package dev.perinkpheral.clion.device
 import dev.perinkpheral.core.device.LogFollower
 import dev.perinkpheral.core.device.Screen
 import java.io.IOException
+import java.awt.image.BufferedImage
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -13,6 +14,32 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class DeviceRefreshTest {
+    @Test
+    fun restartedSimulatorReplacesPixelsEvenWhenTheFrameNumberRepeats() {
+        val support = DeviceScreenSupport()
+        var shown: BufferedImage? = null
+        val oldFrame = Screen(listOf(booleanArrayOf(true)), 1, false)
+        val newFrame = Screen(listOf(booleanArrayOf(false)), 1, false)
+        fun refresh(frame: Screen) = DeviceRefresh({ "{\"firmware\":\"simulator\"}" },
+            { LogFollower.Part("", true) }, { frame }, isSimulator = true, screenSupport = support)
+        refresh(oldFrame).updateScreen { shown = it }
+        assertEquals(oldFrame.image().getRGB(0, 0), shown!!.getRGB(0, 0))
+        refresh(newFrame).updateScreen { shown = it }
+        assertEquals(newFrame.image().getRGB(0, 0), shown!!.getRGB(0, 0))
+    }
+
+    @Test
+    fun displayKeepsLastImageOnFailureAndClearsItWhenScreenIsUnsupported() {
+        val previous = BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB)
+        var shown: BufferedImage? = previous
+        val failed = DeviceRefresh({ "{\"dev_tools\":true}" }, { null }, { throw IOException("timeout") })
+        failed.updateScreen { shown = it }
+        assertSame(previous, shown)
+        val release = DeviceRefresh({ "{\"dev_tools\":false}" }, { null }, { error("No screen route") })
+        release.updateScreen { shown = it }
+        assertNull(shown)
+    }
+
     @Test
     fun releaseFirmwareReadsStatusAndLogsWithoutScreen() {
         for (capability in listOf("", ",\"dev_tools\":false")) {

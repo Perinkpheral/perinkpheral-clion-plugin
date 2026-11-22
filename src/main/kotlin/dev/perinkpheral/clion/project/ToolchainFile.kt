@@ -30,10 +30,19 @@ object ToolchainFile {
     /** Writes the file from the current settings. Returns true when its content changed. */
     fun write(): Boolean {
         val settings = PerinkpheralSettings.get()
-        val sdk = cmakePath(settings.sdkPath)
-        val wasi = cmakePath(settings.wasiSdkPath)
-        val host = cmakePath(settings.deviceHost)
-        val text = buildString {
+        val text = content(settings.sdkPath, settings.wasiSdkPath, settings.deviceHost, generatedRoot)
+        val target = file
+        if (target.isFile && target.readText() == text) return false
+        target.parentFile.mkdirs()
+        target.writeText(text)
+        return true
+    }
+
+    internal fun content(sdkPath: String, wasiSdkPath: String, deviceHost: String, generatedRoot: File): String {
+        val sdk = cmakePath(sdkPath)
+        val wasi = cmakePath(wasiSdkPath)
+        val host = cmakePath(deviceHost)
+        return buildString {
             appendLine("# Written by the perINKpheral plugin for CLion from its settings.")
             appendLine("# Rewritten whenever they change: edit them in Settings | Tools | perINKpheral.")
             if (sdk.isNotBlank()) {
@@ -41,10 +50,9 @@ object ToolchainFile {
                 appendLine("set(ENV{PERINKPHERAL} \"$sdk\")")
             }
             if (wasi.isNotBlank()) appendLine("set(ENV{WASI_SDK_PATH} \"$wasi\")")
-            if (host.isNotBlank()) {
-                appendLine("set(ENV{PERINKPHERAL_HOST} \"$host\")")
-                appendLine("set(PERINKPHERAL_HOST \"$host\" CACHE STRING \"The device's address\" FORCE)")
-            }
+            // Empty settings must also replace a previously cached upload target.
+            appendLine("set(ENV{PERINKPHERAL_HOST} \"$host\")")
+            appendLine("set(PERINKPHERAL_HOST \"$host\" CACHE STRING \"The device's address\" FORCE)")
             // strings.h and pictures.h: made by the plugin, not by the command line.
             appendLine("set(PERINKPHERAL_GENERATED \"${cmakePath(generatedRoot.path)}\")")
             appendLine("set(${GeneratedFiles.CMAKE_OPTION} ON)")
@@ -60,25 +68,20 @@ object ToolchainFile {
             appendLine("set(PERINKPHERAL_COMPILE_FLAGS \"$compile\")")
             appendLine("set(PERINKPHERAL_LINK_FLAGS \"$link\")")
         }
-        val target = file
-        if (target.isFile && target.readText() == text) return false
-        target.parentFile.mkdirs()
-        target.writeText(text)
-        return true
     }
 
     /** Makes strings.h, strings.c and pictures.h of an application for the code to read.
      * Returns null, or what is wrong with its strings or pictures; then the headers made
      * before stay, and the code keeps its names. */
-    fun writeHeaders(appDir: File): String? {
-        val settings = PerinkpheralSettings.get()
-        if (!settings.isSdkValid) return null
-        return try {
+    fun writeHeaders(appDir: File): String? = try {
+        GeneratedFiles.serialized(appDir) {
+            val settings = PerinkpheralSettings.get()
+            if (!settings.isSdkValid) return@serialized null
             GeneratedFiles.requireSdkSupport(File(settings.sdkPath))
             settings.builder {}.headers(appDir, generated(appDir))
             null
-        } catch (error: Exception) {
-            error.message ?: error.javaClass.simpleName
         }
+    } catch (error: Exception) {
+        error.message ?: error.javaClass.simpleName
     }
 }
