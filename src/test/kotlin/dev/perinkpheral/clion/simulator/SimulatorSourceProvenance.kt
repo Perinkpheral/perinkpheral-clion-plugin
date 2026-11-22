@@ -8,7 +8,7 @@ import java.util.Properties
 
 /** Source inputs of tools/simulator/Makefile; no compiler, build output or Git HEAD is hashed. */
 internal object SimulatorSourceProvenance {
-    // SOURCES, excluding sim.c (covered by tools/simulator below).
+    // SOURCES, excluding sim.c (added below).
     private val compiledSources = """
         firmware/components/appsys/answer_headers.c
         firmware/components/appsys/app.c
@@ -53,7 +53,20 @@ internal object SimulatorSourceProvenance {
         "firmware/components/board/include", "firmware/components/appconf/include",
         "firmware/components/deadlines/include", "firmware/main"
     )
-    private val include = Regex("""(?m)^\s*#\s*include\s*[<"]([^>"]+)[>"]""")
+    private val include = Regex("""(?m)^\s*#\s*include\s*([<"])([^>"]+)[>"]""")
+
+    // File.isFile alone also accepts differently cased names on macOS.
+    private fun resolveInclude(directory: File, name: String): File? {
+        var current = directory
+        for (part in name.split('/')) {
+            current = when (part) {
+                "." -> current
+                ".." -> current.parentFile ?: return null
+                else -> current.listFiles()?.firstOrNull { it.name == part } ?: return null
+            }
+        }
+        return current.takeIf { it.isFile }
+    }
 
     fun inputs(firmware: File): Map<String, ByteArray> {
         require(firmware.isDirectory) { "Missing firmware checkout: $firmware" }
@@ -67,25 +80,34 @@ internal object SimulatorSourceProvenance {
             sources[path] = bytes
             // Follow local headers (including fonts and wasm3 headers), but not system headers
             // or generated host_imports.inc/page.inc. Their source prerequisites are added below.
-            if (file.extension in listOf("c", "h")) {
+            if (file.extension in listOf("c", "h", "inc")) {
                 for (match in include.findAll(bytes.toString(Charsets.UTF_8))) {
-                    val name = match.groupValues[1]
-                    (listOf(file.parentFile) + directories).asSequence()
-                        .map { File(it, name).normalize() }.firstOrNull { it.isFile }?.let { add(it) }
+                    val name = match.groupValues[2]
+                    val search = if (match.groupValues[1] == "\"") listOf(file.parentFile) + directories
+                        else directories
+                    search.asSequence().mapNotNull { resolveInclude(it, name) }.firstOrNull()?.let { add(it) }
                 }
             }
         }
-        // Makefile and all simulator sources, including new files, excluding its ignored build/.
-        val simulator = File(firmware, "tools/simulator")
-        simulator.walkTopDown().onEnter { it != File(simulator, "build") }
-            .filter { it.isFile }.forEach { add(it) }
+        add(File(firmware, "tools/simulator/Makefile"))
+        add(File(firmware, "tools/simulator/sim.c"))
         compiledSources.forEach { add(File(firmware, it)) }
-        // WASM3_SOURCES := $(wildcard $(WASM3)/*.c)
-        File(firmware, "firmware/components/wasm3/wasm3").listFiles().orEmpty()
-            .filter { it.extension == "c" }.forEach { add(it) }
+        // WASM3_SOURCES replaces m3_compile.c with the firmware's budget wrapper.
+        val wasm3 = File(firmware, "firmware/components/wasm3/wasm3")
+        val wasm3Files = wasm3.listFiles().orEmpty().filter { it.isFile }
+        val wasm3Sources = wasm3Files.filter { it.extension == "c" && it.name != "m3_compile.c" } +
+            File(firmware, "firmware/components/wasm3/m3_budget_compile.c")
+        // WASM3_DEPS also includes the wrapped compiler and every wasm3 header.
+        (wasm3Sources + File(wasm3, "m3_compile.c") + wasm3Files.filter { it.extension == "h" })
+            .forEach { add(it) }
+        // FONT_HEADERS := $(wildcard $(GFX)/fonts/*.h)
+        File(firmware, "firmware/components/gfx/fonts").listFiles().orEmpty()
+            .filter { it.extension == "h" }.forEach { add(it) }
         // Prerequisites of generated host_imports.inc and page.inc.
         add(File(firmware, "sdk/host_api.h"))
         File(firmware, "sdk/host").listFiles().orEmpty().filter { it.extension == "h" }.forEach { add(it) }
+        add(File(firmware, "tools/cli/src/main/kotlin/dev/perinkpheral/cli/ContractTools.kt"))
+        add(File(firmware, "tools/core/src/main/kotlin/dev/perinkpheral/core/contract/Contract.kt"))
         add(File(firmware, "tools/cli/src/main/resources/dev/perinkpheral/cli/page.html"))
         return sources
     }
@@ -122,14 +144,16 @@ internal object SimulatorSourceProvenance {
         val firmware = File(args[0]).absoluteFile
         val resources = File(args[1])
         val inputs = inputs(firmware)
-        File(resources, "build.properties").writeText(buildString {
-            appendLine("# Built with tools/simulator/Makefile; source paths are relative to the firmware root.")
-            appendLine("# source.sha256: sorted paths and raw contents, each framed by an 8-byte BE length.")
-            appendLine("source.sha256=${hash(inputs)}")
-            for ((path, hash) in fileHashes(inputs)) appendLine("source.file.$path=$hash")
+        val properties = Properties().apply {
+            setProperty("source.sha256", hash(inputs))
+            for ((path, hash) in fileHashes(inputs)) setProperty("source.file.$path", hash)
             for (platform in listOf("macos", "linux-x86_64", "linux-aarch64")) {
-                appendLine("$platform.sha256=${sha256(File(resources, "$platform/perinkpheral-sim").readBytes())}")
+                setProperty("$platform.sha256", sha256(File(resources, "$platform/perinkpheral-sim").readBytes()))
             }
-        })
+        }
+        File(resources, "build.properties").outputStream().use {
+            properties.store(it, "Built with tools/simulator/Makefile; source paths are relative to the firmware root.\n" +
+                "source.sha256: sorted paths and raw contents, each framed by an 8-byte BE length.")
+        }
     }
 }

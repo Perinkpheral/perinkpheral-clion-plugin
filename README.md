@@ -40,20 +40,22 @@ Installation: Settings - Plugins - Install Plugin from Disk.
 
 Bundled simulators record their source inputs in
 `src/main/resources/simulator/build.properties`. The test hashes sorted relative
-paths and raw contents from `tools/simulator` (excluding `build/`), every firmware
-and SDK source compiled by its Makefile, included local headers, and the SDK
-headers and CLI page used to generate embedded data. Each path and content is
-prefixed by its 8-byte big-endian byte length. Per-file hashes identify changed,
+paths and raw contents of `tools/simulator/Makefile`, `sim.c`, every firmware
+and SDK source compiled by that Makefile, included local files, wasm3 and font
+header prerequisites, and the SDK headers, Kotlin import generators and CLI page
+used to generate embedded data. Each path and content is prefixed by its 8-byte
+big-endian byte length. Per-file hashes identify changed,
 added or removed inputs; each binary also retains its own SHA-256. Unrelated
 firmware commits require no rebuild.
 
 When these inputs change, build all three platforms using
 `tools/simulator/Makefile` in the firmware checkout and copy the executables into
-the corresponding resource folders. Then run
-`./gradlew recordSimulatorProvenance -PperinkpheralPath=<checkout>` and `./gradlew test`
-with the same checkout. Keep the source and include lists in
-`SimulatorSourceProvenance.kt` in sync when the Makefile changes; the Makefile
-itself is hashed so such changes are detected.
+the corresponding resource folders. Immediately after building and copying the
+binaries, run `./gradlew recordSimulatorProvenance -PperinkpheralPath=<checkout>`
+before making any further source changes. Then run
+`./gradlew test -PperinkpheralPath=<checkout>` with the same checkout. Keep the
+source and include lists in `SimulatorSourceProvenance.kt` in sync when the
+Makefile changes; the Makefile itself is hashed so such changes are detected.
 
 When upgrading from the old `org.perinkpheral.clion` plugin, uninstall it before
 installing this `dev.perinkpheral.clion` build; the IDE treats the IDs as separate plugins.
