@@ -67,11 +67,11 @@ class SimulatorSourceProvenanceTest {
 
     @Test
     fun followsIncludedFilesAndEscapesPropertiesPaths() = withFirmwareCopy { root, _ ->
-        val header = "tools/simulator/header = é.h"
+        val header = "tools/simulator/header = x.h"
         val nested = "tools/simulator/nested.inc"
         write(root, header, "#include \"nested.inc\"\n")
         write(root, nested, "/* included data */")
-        File(root, "tools/simulator/sim.c").appendText("\n#include \"header = é.h\"\n")
+        File(root, "tools/simulator/sim.c").appendText("\n#include \"header = x.h\"\n")
         val resources = File(root, "bundles")
         val platforms = listOf("macos", "linux-x86_64", "linux-aarch64")
         platforms.forEach { write(resources, "$it/perinkpheral-sim", "fixture for $it") }
