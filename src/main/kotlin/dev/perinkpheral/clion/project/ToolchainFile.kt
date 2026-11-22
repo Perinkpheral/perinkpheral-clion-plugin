@@ -50,9 +50,18 @@ object ToolchainFile {
                 appendLine("set(ENV{PERINKPHERAL} \"$sdk\")")
             }
             if (wasi.isNotBlank()) appendLine("set(ENV{WASI_SDK_PATH} \"$wasi\")")
-            // Empty settings must also replace a previously cached upload target.
             appendLine("set(ENV{PERINKPHERAL_HOST} \"$host\")")
-            appendLine("set(PERINKPHERAL_HOST \"$host\" CACHE STRING \"The device's address\" FORCE)")
+            if (host.isNotBlank()) {
+                appendLine("set(PERINKPHERAL_HOST \"$host\" CACHE STRING \"The device's address\" FORCE)")
+                appendLine("set(_PERINKPHERAL_PLUGIN_HOST \"$host\" CACHE INTERNAL \"Last device address set by the plugin\" FORCE)")
+            } else {
+                // Each build cache owns its history. Preserve a developer's -D override.
+                appendLine("if(DEFINED CACHE{_PERINKPHERAL_PLUGIN_HOST} AND")
+                appendLine("   \"\$CACHE{PERINKPHERAL_HOST}\" STREQUAL \"\$CACHE{_PERINKPHERAL_PLUGIN_HOST}\")")
+                appendLine("    unset(PERINKPHERAL_HOST CACHE)")
+                appendLine("endif()")
+                appendLine("unset(_PERINKPHERAL_PLUGIN_HOST CACHE)")
+            }
             // strings.h and pictures.h: made by the plugin, not by the command line.
             appendLine("set(PERINKPHERAL_GENERATED \"${cmakePath(generatedRoot.path)}\")")
             appendLine("set(${GeneratedFiles.CMAKE_OPTION} ON)")
