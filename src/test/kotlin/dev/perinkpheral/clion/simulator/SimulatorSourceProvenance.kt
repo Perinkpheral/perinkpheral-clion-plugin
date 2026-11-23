@@ -13,6 +13,7 @@ internal object SimulatorSourceProvenance {
         firmware/components/appsys/answer_headers.c
         firmware/components/appsys/app.c
         firmware/components/appsys/app_api_draw.c
+        firmware/components/appsys/app_api_map.c
         firmware/components/appsys/app_api_ui.c
         firmware/components/appsys/app_api_data.c
         firmware/components/appsys/app_api_time.c
@@ -35,6 +36,10 @@ internal object SimulatorSourceProvenance {
         firmware/components/gfx/gfx_icon_art.c
         firmware/components/words/words.c
         firmware/components/gfx/font_square.c
+        firmware/components/map/map_geo.c
+        firmware/components/map/map_land.c
+        firmware/components/map/map_land_data.c
+        firmware/components/map/map_draw.c
         firmware/main/screens.c
         firmware/components/appconf/appconf.c
         firmware/main/header.c
@@ -48,6 +53,7 @@ internal object SimulatorSourceProvenance {
         "firmware/components/appsys/include", "firmware/components/appstore/include",
         "firmware/components/ui/include", "firmware/components/gfx/include",
         "firmware/components/words/include", "firmware/components/gfx/fonts",
+        "firmware/components/map/include",
         "firmware/components/qr/include", "firmware/components/qr/qrcodegen",
         "firmware/components/wasm3/wasm3", "sdk", "sdk/lib",
         "firmware/components/board/include", "firmware/components/appconf/include",
