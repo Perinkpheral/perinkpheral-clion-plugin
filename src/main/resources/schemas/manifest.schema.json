@@ -4,6 +4,10 @@
   "type": "object",
   "required": ["name", "title", "author", "version", "abi"],
   "definitions": {
+    "responseFormat": {
+      "type": "string",
+      "enum": ["json", "xml", "raw"]
+    },
     "settingKey": {
       "type": "string",
       "minLength": 1,
@@ -38,6 +42,10 @@
     "abi": {
       "description": "Perinkpheral OS API version the application is built for.",
       "const": 3
+    },
+    "format": {
+      "description": "Response format for scheduled polls and requests from code. Without a declaration, Content-Type selects JSON or XML. Other responses are delivered as raw bytes.",
+      "allOf": [{ "$ref": "#/definitions/responseFormat" }]
     },
     "firmware": {
       "description": "The oldest firmware the application runs on. Written by the build from the Perinkpheral OS calls the module makes; given here, it may only be later.",
@@ -87,6 +95,10 @@
             "maxProperties": 4,
             "propertyNames": { "maxLength": 31 },
             "additionalProperties": { "type": "string", "maxLength": 255 }
+          },
+          "format": {
+            "description": "Response format for this poll. Overrides the application default and ignores the response Content-Type.",
+            "allOf": [{ "$ref": "#/definitions/responseFormat" }]
           },
           "pick": {
             "description": "JSON paths Perinkpheral OS extracts, delivered through app_on_picked(). \"[*]\" once in a path: every element of an array, read with answer_count() and answer_element().",
