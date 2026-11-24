@@ -8,6 +8,9 @@
       "type": "string",
       "enum": ["json", "xml", "raw"]
     },
+    "emptyPick": {
+      "properties": { "pick": { "maxItems": 0 } }
+    },
     "settingKey": {
       "type": "string",
       "minLength": 1,
@@ -44,7 +47,7 @@
       "const": 3
     },
     "format": {
-      "description": "Response format for scheduled polls and requests from code. Without a declaration, Content-Type selects JSON or XML. Other responses are delivered as raw bytes.",
+      "description": "Default response format for scheduled polls and requests from code. An explicit format ignores Content-Type. When omitted, Content-Type selects JSON or XML, with other responses delivered as raw bytes.",
       "allOf": [{ "$ref": "#/definitions/responseFormat" }]
     },
     "firmware": {
@@ -76,6 +79,11 @@
       "items": {
         "type": "object",
         "required": ["url", "every"],
+        "if": {
+          "required": ["format"],
+          "properties": { "format": { "enum": ["xml", "raw"] } }
+        },
+        "then": { "$ref": "#/definitions/emptyPick" },
         "properties": {
           "url": {
             "description": "http(s) address. {{key}} is replaced by the stored setting; a url or link setting may stand at the start.",
@@ -183,6 +191,22 @@
       "type": "array",
       "maxItems": 2,
       "items": { "type": "string", "pattern": "^[a-z0-9_-][a-z0-9._-]{0,22}$" }
+    }
+  },
+  "if": {
+    "required": ["format"],
+    "properties": { "format": { "enum": ["xml", "raw"] } }
+  },
+  "then": {
+    "properties": {
+      "polls": {
+        "items": {
+          "anyOf": [
+            { "required": ["format"] },
+            { "$ref": "#/definitions/emptyPick" }
+          ]
+        }
+      }
     }
   }
 }
