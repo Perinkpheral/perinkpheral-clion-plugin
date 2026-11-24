@@ -11,6 +11,9 @@ internal object SimulatorSourceProvenance {
     // SOURCES, excluding sim.c (added below).
     private val compiledSources = """
         firmware/components/appsys/answer_headers.c
+        firmware/components/appsys/xml_query.c
+        firmware/components/appsys/document_reader.c
+        firmware/components/appsys/json_document.c
         firmware/components/appsys/app.c
         firmware/components/appsys/app_api_draw.c
         firmware/components/appsys/app_api_map.c
