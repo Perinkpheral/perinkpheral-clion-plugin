@@ -14,8 +14,8 @@ Application guide (PDF):
 ## Requirements
 
 CLion 2026.2 or later. Set Up Toolchain downloads the SDK and wasi-sdk;
-git must be on `PATH`. Screen capture, button injection and development uploads
-require firmware with `APP_DEV_CONSOLE` enabled. Status, logs and firmware updates
+git must be on `PATH`. Button injection and development uploads require firmware
+with `APP_DEV_CONSOLE` enabled. Screen capture, status, logs and firmware updates
 also work with release firmware. The bundled simulator supports macOS and Linux.
 Update an existing SDK checkout before using this plugin. Generated headers are
 stored separately for each application checkout.

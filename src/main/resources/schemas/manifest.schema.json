@@ -20,7 +20,7 @@
   },
   "properties": {
     "name": {
-      "description": "Folder name, catalog key and store namespace. 1-13 of a-z, 0-9, '-', '_'.",
+      "description": "Folder name and catalog key; the store namespace is a.<name>. 1-13 characters from a-z, 0-9, '-', '_'.",
       "type": "string",
       "pattern": "^[a-z0-9_-]{1,13}$"
     },
@@ -51,7 +51,7 @@
       "allOf": [{ "$ref": "#/definitions/responseFormat" }]
     },
     "firmware": {
-      "description": "The oldest firmware the application runs on. Written by the build from the Perinkpheral OS calls the module makes; given here, it may only be later.",
+      "description": "Minimum firmware version, computed from the ABI floor, imported calls, exported handlers, recognized manifest features and any higher explicit minimum.",
       "type": "string",
       "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$"
     },
@@ -86,7 +86,7 @@
         "then": { "$ref": "#/definitions/emptyPick" },
         "properties": {
           "url": {
-            "description": "http(s) address. {{key}} is replaced by the stored setting; a url or link setting may stand at the start.",
+            "description": "http(s) address. {{key}} is replaced by the stored setting. A url setting may supply the server prefix. A link setting must supply the entire URL.",
             "type": "string",
             "maxLength": 511,
             "pattern": "^(https?://|\\{\\{)"
