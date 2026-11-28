@@ -35,7 +35,7 @@ and editor context menus.
 
 ## Build
 
-Requires Java 21 and a sibling `../perinkpheral-os` checkout for `tools/core`.
+Requires Java 21, Make and a sibling `../perinkpheral-os` checkout for `tools/core`.
 `-PperinkpheralPath=<checkout>` selects another checkout;
 `-PclionPath=<installation>` selects an installed CLion.
 
@@ -47,11 +47,18 @@ The plugin archive is written to `build/distributions/`.
 Installation: Settings - Plugins - Install Plugin from Disk.
 
 Bundled simulators record their source inputs in
-`src/main/resources/simulator/build.properties`. The test hashes sorted relative
-paths and raw contents of `tools/simulator/Makefile`, `sim.c`, every firmware
-and SDK source compiled by that Makefile, included local files, wasm3 and font
-header prerequisites, and the SDK headers, Kotlin import generators and CLI page
-used to generate embedded data. Each path and content is prefixed by its 8-byte
+`src/main/resources/simulator/build.properties`. `SimulatorSourceProvenance.kt`
+maintains the source and include lists. A test expands `SOURCES` and
+`WASM3_SOURCES` with Make and fails if any compiled source is absent from the
+provenance inputs. This check does not build the simulator.
+`BundledSimulatorTest` separately compares the selected inputs and bundled
+binaries with the recorded hashes; passing source coverage does not establish
+that the bundles match the firmware checkout.
+The provenance hash covers sorted relative paths and raw contents of
+`tools/simulator/Makefile`, `sim.c`, the listed firmware and SDK sources,
+included local files, wasm3 and font header prerequisites, and the SDK headers,
+Kotlin import generators and CLI page used to generate embedded data.
+Each path and content is prefixed by its 8-byte
 big-endian byte length. Per-file hashes identify changed,
 added or removed inputs; each binary also retains its own SHA-256. Unrelated
 firmware commits require no rebuild.
@@ -63,7 +70,8 @@ binaries, run `./gradlew recordSimulatorProvenance -PperinkpheralPath=<checkout>
 before making any further source changes. Then run
 `./gradlew test -PperinkpheralPath=<checkout>` with the same checkout. Keep the
 source and include lists in `SimulatorSourceProvenance.kt` in sync when the
-Makefile changes; the Makefile itself is hashed so such changes are detected.
+Makefile changes. The source coverage test detects omissions from the expanded
+source variables; the Makefile itself is also hashed.
 
 When upgrading from the old `org.perinkpheral.clion` plugin, uninstall it before
 installing this `dev.perinkpheral.clion` build; the IDE treats the IDs as separate plugins.

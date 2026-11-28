@@ -26,10 +26,13 @@ internal object SimulatorSourceProvenance {
         firmware/components/appstore/app_store.c
         firmware/components/appstore/app_manifest.c
         firmware/components/appstore/poll_schedule.c
+        firmware/components/appstore/poll_round.c
         firmware/components/appstore/json_tree.c
         firmware/components/appstore/text_template.c
         sdk/lib/json_pick.c
         firmware/components/ui/wm.c
+        firmware/components/ui/back_switch.c
+        firmware/main/question_press.c
         firmware/components/ui/notice.c
         firmware/components/ui/kit.c
         firmware/components/ui/scrollbar.c

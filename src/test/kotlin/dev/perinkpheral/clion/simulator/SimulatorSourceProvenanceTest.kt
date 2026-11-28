@@ -12,6 +12,30 @@ import kotlin.test.assertTrue
 
 class SimulatorSourceProvenanceTest {
     @Test
+    fun coversEverySourceCompiledBySimulatorMakefile() {
+        val firmware = File(System.getProperty("perinkpheral.sdk")).parentFile
+        // Expand the Makefile's own variables without building or generating any files.
+        val process = ProcessBuilder("make", "--no-print-directory", "-rR", "-s",
+            "-f", "Makefile", "-f", "-", "provenance-sources")
+            .directory(File(firmware, "tools/simulator"))
+            .redirectErrorStream(true)
+            .start()
+        process.outputStream.bufferedWriter().use {
+            it.write(".PHONY: provenance-sources\nprovenance-sources:\n" +
+                "\t@printf '%s\\n' $(SOURCES) $(WASM3_SOURCES)\n")
+        }
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        assertEquals(0, process.waitFor(), output)
+        val compiled = output.lineSequence().filter { it.isNotBlank() }.map {
+            File(firmware, "tools/simulator/$it").normalize().relativeTo(firmware).invariantSeparatorsPath
+        }.toSet()
+        assertTrue("tools/simulator/sim.c" in compiled, "Makefile source list is empty or invalid: $output")
+        val missing = compiled - SimulatorSourceProvenance.inputs(firmware).keys
+        assertTrue(missing.isEmpty(), "Sources compiled by the simulator Makefile lack provenance: " +
+            missing.sorted().joinToString())
+    }
+
+    @Test
     fun unrelatedFirmwareChangesAndBuildOutputsDoNotChangeProvenance() = withFirmwareCopy { root, original ->
         write(root, ".git/HEAD", "a later firmware commit")
         write(root, "firmware/main/unrelated.c", "new unrelated firmware code")
@@ -29,6 +53,8 @@ class SimulatorSourceProvenanceTest {
         val changed = listOf(
             "tools/simulator/sim.c", "tools/simulator/Makefile",
             "firmware/components/appstore/poll_schedule.c", "sdk/lib/json_pick.c",
+            "firmware/components/appstore/poll_round.c", "firmware/components/ui/back_switch.c",
+            "firmware/main/question_press.c",
             "firmware/components/appsys/include/app.h", "sdk/host/net.h",
             "firmware/components/wasm3/m3_budget_compile.c",
             "firmware/components/wasm3/wasm3/m3_compile.c",
